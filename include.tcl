@@ -3,7 +3,11 @@ set TCLLIB_DIR /usr/share/tcltk/tcllib1.12
 set TK_CON_DIR /usr/share/tcltk/tkcon2.5 ;#bin: /usr/bin/tkcon
 set ITCL_DIR /usr/share/tcltk/itcl3.4
 
-set auto_path [concat $auto_path $TCL_8p4_DIR $TCLLIB_DIR $ITCL_DIR $TK_CON_DIR]
+lappend auto_path $TCL_8p4_DIR
+lappend auto_path $TCLLIB_DIR
+lappend auto_path $ITCL_DIR
+lappend auto_path $TK_CON_DIR
+
 
 package require Itcl
 #package require debug
@@ -13,8 +17,16 @@ package require Itcl
 #   TOOL:
 ##########
 ### 0    BASIC:
-proc source_echo {file_name} {
-
+puts "USAGE_ENV=$USAGE_ENV"
+if {$USAGE_ENV eq "tclsh"} {
+   proc setenv {varName value } {
+      global env
+      set env($varName) $value
+   }
+   proc getenv {varName} {
+      global env
+      return $env($varName)
+   }
 }
 proc incr {varName {amount 1}} {
    upvar 1 $varName var
@@ -26,8 +38,56 @@ proc incr {varName {amount 1}} {
    return $var
 }
 proc show_var {varName} {
-   upvar $varName var
-   puts "$varName=$var"
+   upvar 1 $varName var
+   if {[info exists var]} {
+      puts "$varName=$var"
+   }
+}
+
+if {$USAGE_ENV eq "tclsh"} {
+   if {[info procs source] eq ""} {
+      puts "Info: setting up verbose feature for source proc"
+      rename source source.orig
+      proc source {file_name args } {
+         show_var file_name
+         show_var args
+         if {[lsearch $args "-e"]==-1} {
+            #source.orig $file_name
+            uplevel "source.orig $file_name"
+         } else {
+            puts "source $file_name in verbose mode"
+            puts [uplevel "verbose_eval $file_name"]
+         }
+      }
+   }
+   proc verbose_eval {script} {
+      ;#in http://wiki.tcl.tk/473
+      set cmd ""
+      set fp [open $script]
+      while {[gets $fp line]>=0} {
+         if {$line eq ""} {continue}
+         #puts "LINE: $line"
+         append cmd $line\n
+         if {[info complete $cmd]} {
+            puts -nonewline "CMD>"
+            puts -nonewline $cmd
+            puts -nonewline [uplevel 1 $cmd]
+            puts ""
+            set cmd ""
+         }
+      }
+      close $fp
+   }
+}
+if {0} {
+   set script {
+      puts hello
+      expr 2.2*3
+      foreach i {1 2 3} {
+         puts $i
+      }
+   }
+   verbose_eval $script
 }
 #
 ### 1   CONNECTION

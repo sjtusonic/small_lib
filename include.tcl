@@ -17,6 +17,7 @@ package require Itcl
 #   TOOL:
 ##########
 ### 0    BASIC:
+if {![info exists USAGE_ENV]} {set USAGE_ENV tclsh}
 puts "USAGE_ENV=$USAGE_ENV"
 if {$USAGE_ENV eq "tclsh"} {
    proc setenv {varName value } {
@@ -37,10 +38,12 @@ proc incr {varName {amount 1}} {
    }
    return $var
 }
-proc show_var {varName} {
-   upvar 1 $varName var
-   if {[info exists var]} {
-      puts "$varName=$var"
+proc show_var {varNameList} {
+   foreach varName $varNameList {
+      upvar 1 $varName var
+      if {[info exists var]} {
+         puts "$varName=$var"
+      }
    }
 }
 
@@ -218,12 +221,14 @@ define_proc_attributes UDP_set_attr2scan_cell \
 }
 
 ###4 FORMAT PRINTING
-proc print_list_line_by_line {ll {limit 0} {sort 0}} {
+proc print_list_line_by_line {llname {limit 0} {sort 0}} {
+   upvar 1 $llname ll
    if {$sort} {
       set ll [lsort -dic $ll]
    } 
-   puts "\tbegin of list"
-   puts "\ttotally [llength $ll]"
+   #puts "print_list_line_by_line: $llname:"
+   puts "--begin of list $llname"
+   puts "--totally [llength $ll]"
    if {$limit<=0} {
       foreach i $ll {
          puts $i
@@ -236,6 +241,7 @@ proc print_list_line_by_line {ll {limit 0} {sort 0}} {
          if {$cnt >= $limit} {puts "reaching limit=$limit, break"; break}
       }
    }
+   puts "--end of list $llname"
 }
 
 ###5 STATISTICS:
@@ -435,26 +441,25 @@ proc b2v {bbox} {;# this bbox may be not regular
 }
 
 ###6.2 BBOX
-proc calc_area {bbox} {
+set cmd {
    set points [bbox2points $bbox]
    set a [lindex $points 0]
    set c [lindex $points 2]
-
    set llx [lindex $a 0 ];#llx
    set lly [lindex $a 1 ];#lly
    set urx [lindex $c 0 ];#urx
    set ury [lindex $c 1 ];#ury
+}
+proc calc_area {bbox} {
+   global cmd
+   eval $cmd
+
    return [expr ($urx-$llx)*($ury-$lly)]
 }
 
 proc point_is_in_bbox {p bbox {generalized 0}} {
-   set points [bbox2points $bbox]
-   set a [lindex $points 0]
-   set c [lindex $points 2]
-   set llx [lindex $a 0 ];#llx
-   set lly [lindex $a 1 ];#lly
-   set urx [lindex $c 0 ];#urx
-   set ury [lindex $c 1 ];#ury
+   global cmd
+   eval $cmd
 
    set px [lindex $p 0]
    set py [lindex $p 1]
@@ -831,3 +836,18 @@ proc sum_of_bitcnt {cell_list} {
    return $sum
 }
 
+### 18 redirect
+proc redirect_file {file_name cmd} {
+   rename puts ::tcl::orig::puts
+   set mode w
+   set destination [open $file_name $mode]
+
+   proc puts args "
+   uplevel \"::tcl::orig::puts $destination \$args\";return
+   "
+   uplevel $cmd
+   close $destination
+
+   rename puts {}
+   rename ::tcl::orig::puts puts
+}

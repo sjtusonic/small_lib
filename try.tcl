@@ -38,3 +38,7 @@ puts "--"
 puts [vec_inner_product {1 2} {1 2 3}]
 puts [vec_inner_product {1 2} {1 2 3} big_endian]
 puts "end--"
+
+set ll {1 1 2 2.5}
+puts [set u [v2b $ll]]
+puts [calc_area $u]
